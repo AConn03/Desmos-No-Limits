@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Desmos No Limits",
+  "version": "1.0",
+  "description": "Increased max list length to 1,000,000,000 and max matrix length to 1,000,000",
+  "permissions": [],
+  "host_permissions": [
+    "https://www.desmos.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.desmos.com/calculator*",
+        "https://www.desmos.com/3d*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
