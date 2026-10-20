@@ -15,7 +15,7 @@
                             .replace(/32/g, (match, offset, str) => {
                                 const snippet = str.substring(Math.max(0, offset - 50), Math.min(str.length, offset + 50));
                                 if (snippet.includes("column") || snippet.includes("row") || snippet.includes("matrix") || snippet.includes("Matrices")) {
-                                    return "1000000";
+                                    return "1e6";
                                 }
                                 return match;
                             });
