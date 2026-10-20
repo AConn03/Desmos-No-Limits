@@ -1,26 +1,31 @@
-(function() {
+(function () {
     window.Worker = new Proxy(Worker, {
         construct(target, args) {
-            if (typeof args[0] === 'string' && args[0].startsWith("blob:")) {
+            const scriptUrl = args[0];
+            if (typeof scriptUrl === 'string' && scriptUrl.startsWith("blob:")) {
                 try {
                     const xhr = new XMLHttpRequest();
-                    xhr.open("GET", args[0], false);
+                    xhr.open("GET", scriptUrl, false);
                     xhr.send();
                     if (xhr.status === 200) {
-                        let workerCode = xhr.responseText;
-                        workerCode = workerCode
-                            .replace(/>= ? 32768/g, `>= 1e9`)
-                            .replace(/1e4/g, `1e9`);
-                        workerCode = workerCode
-                            .replace(/32/g, (match, offset, str) => {
-                                const snippet = str.substring(Math.max(0, offset - 50), Math.min(str.length, offset + 50));
-                                if (snippet.includes("column") || snippet.includes("row") || snippet.includes("matrix") || snippet.includes("Matrices")) {
-                                    return "1e6";
-                                }
-                                return match;
-                            });
-                        const modifiedBlob = new Blob([workerCode], { type: "text/javascript" });
-                        args[0] = URL.createObjectURL(modifiedBlob);
+                        let code = xhr.responseText;
+
+                        const rules = [
+                            { re: />\s*1e4\s*\]?\s*\)\s*throw\s+(?:Um\(\)|ErrorMsg\.maxListSize\(\))/g, rep: m => m.replace("1e4", "1e9") },
+                            { re: /\bsT\s*=\s*\[?1e4\]?/g, rep: m => m.replace("1e4", "1e9") },
+                            { re: /(canUse(?:Restriction|Color|List)WithCost\s*\([^)]*\)\s*\{\s*return\s*[^;]*?<=\s*)(?:\[?1e4\]?)/g, rep: m => m.replace("1e4", "1e9") },
+                            { re: /\bdefaultLimit\s*=\s*1e[45]\b/g, rep: m => m.replace(/1e[45]/, "1e9") },
+                            { re: /\$\{[^}]*\}\s*>\s*\$\{\[?1e4\]?\}\s*\)\s*throw\s+ErrorMsg\.maxListSize\(\)/g, rep: m => m.replace("1e4", "1e9") },
+                            { re: /\bmaxMatrixDimen\s*:\s*\[?32\]?/g, rep: "maxMatrixDimen:1e6" },
+                            { re: /\.length\s*>\s*\[?32\]?\s*\)\s*throw\s+(?:Nb\(\)|HE\(\)|zE\(\))/g, rep: m => m.replace(/\b32\b/, "1e6") },
+                        ];
+
+                        for (const r of rules) {
+                            code = code.replace(r.re, m => typeof r.rep === 'function' ? r.rep(m) : r.rep);
+                        }
+
+                        const blob = new Blob([code], { type: "text/javascript" });
+                        args[0] = URL.createObjectURL(blob);
                     }
                 } catch (e) {
                     console.error("Failed to patch Desmos worker:", e);
